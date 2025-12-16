@@ -1,0 +1,741 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>校园空中铁路监控</title>
+  <style>
+    :root {
+      --bg: #0b0f14;
+      --panel: #0f1620;
+      --panel2: #0c121a;
+      --text: #e6edf3;
+      --muted: #94a3b8;
+      --line: #1f2a37;
+      --ok: #22c55e;
+      --warn: #f59e0b;
+      --bad: #ef4444;
+      --btn: #1b2636;
+      --btn2: #0f1a29;
+      --accent: #60a5fa;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", Arial;
+      background: radial-gradient(1200px 700px at 30% -10%, #122033 0%, var(--bg) 60%);
+      color: var(--text);
+    }
+    .app {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 16px;
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 12px;
+    }
+    header {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 10px 12px;
+      background: rgba(15, 22, 32, 0.75);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      backdrop-filter: blur(8px);
+    }
+    .title {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .title h1 { font-size: 16px; margin: 0; font-weight: 650; }
+    .title .sub { font-size: 12px; color: var(--muted); }
+    .toolbar {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+    button, select, input {
+      border: 1px solid var(--line);
+      background: linear-gradient(180deg, var(--btn), var(--btn2));
+      color: var(--text);
+      border-radius: 10px;
+      padding: 9px 10px;
+      font-size: 13px;
+      outline: none;
+    }
+    button { cursor: pointer; }
+    button:hover { border-color: #2a3a52; }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 10px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(12, 18, 26, 0.7);
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); display: inline-block; }
+    .dot.off { background: var(--bad); }
+    .panel {
+      background: rgba(15, 22, 32, 0.72);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      overflow: hidden;
+      backdrop-filter: blur(8px);
+    }
+    .panel .hd {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 12px 10px;
+      border-bottom: 1px solid var(--line);
+    }
+    .panel .hd h2 {
+      font-size: 13px;
+      margin: 0;
+      font-weight: 650;
+      color: #cfe6ff;
+    }
+    .panel .bd { padding: 12px; }
+
+    /* Map */
+    .mapWrap { position: relative; width: 100%; aspect-ratio: 16 / 10; background: rgba(12, 18, 26, 0.7); border-radius: 12px; border: 1px solid #152033; }
+    .mapWrap svg { width: 100%; height: 100%; display: block; }
+    .legend {
+      position: absolute;
+      left: 10px;
+      bottom: 10px;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .tag {
+      font-size: 12px;
+      color: var(--muted);
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 6px 8px;
+      background: rgba(15, 22, 32, 0.75);
+    }
+    .tag strong { color: var(--text); font-weight: 650; }
+
+    /* Side cards */
+    .gridCards { display: grid; grid-template-columns: 1fr; gap: 10px; }
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: rgba(12, 18, 26, 0.65);
+      padding: 10px;
+    }
+    .row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .k { color: var(--muted); font-size: 12px; }
+    .v { font-size: 12px; }
+    .status {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 6px 8px; border-radius: 999px; font-size: 12px;
+      border: 1px solid var(--line); background: rgba(15, 22, 32, 0.7);
+    }
+    .status .sDot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); }
+    .status.warn .sDot { background: var(--warn); }
+    .status.bad .sDot { background: var(--bad); }
+
+    /* Log */
+    .log {
+      max-height: 210px;
+      overflow: auto;
+      display: grid;
+      gap: 8px;
+      padding-right: 6px;
+    }
+    .logItem {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px;
+      background: rgba(12, 18, 26, 0.6);
+      display: grid;
+      gap: 4px;
+    }
+    .logItem .t { font-size: 12px; color: #cfe6ff; }
+    .logItem .m { font-size: 12px; color: var(--muted); line-height: 1.35; }
+    .logItem .ts { font-size: 11px; color: #6b7280; }
+
+    /* Modal */
+    .modalBackdrop {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.55);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 18px;
+    }
+    .modal {
+      width: min(520px, 100%);
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      background: rgba(15, 22, 32, 0.92);
+      backdrop-filter: blur(10px);
+      overflow: hidden;
+    }
+    .modal .mh {
+      padding: 12px 12px 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--line);
+    }
+    .modal .mh h3 { margin: 0; font-size: 14px; font-weight: 650; }
+    .modal .mb { padding: 12px; display: grid; gap: 10px; }
+    .modal label { font-size: 12px; color: var(--muted); display: grid; gap: 6px; }
+    .modal .actions { display: flex; gap: 8px; justify-content: flex-end; padding: 12px; border-top: 1px solid var(--line); }
+    .primary { border-color: rgba(96,165,250,0.4); }
+    .primary:hover { border-color: rgba(96,165,250,0.8); }
+    .ghost { background: rgba(15, 22, 32, 0.35); }
+    .hint { font-size: 12px; color: var(--muted); line-height: 1.35; }
+    .twoCol { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    @media (max-width: 900px) {
+      .app { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div class="title">
+        <h1>校园空中铁路 · 实时监控</h1>
+        <div class="sub">演示版（本地仿真实时数据）｜可替换为 WebSocket / REST 数据源</div>
+      </div>
+      <div class="toolbar">
+        <span class="pill"><span id="connDot" class="dot"></span><span id="connText">在线（仿真）</span></span>
+        <button id="btnCall" class="primary">呼叫列车</button>
+        <button id="btnPause" class="ghost">暂停仿真</button>
+      </div>
+    </header>
+
+    <!-- Left: Map -->
+    <section class="panel">
+      <div class="hd">
+        <h2>轨道与列车位置</h2>
+        <div class="k">刷新周期：<span id="tickMs">500</span> ms</div>
+      </div>
+      <div class="bd">
+        <div class="mapWrap">
+          <svg viewBox="0 0 1000 625" aria-label="轨道地图">
+            <!-- Track (loop) -->
+            <path id="track"
+              d="M 130 420
+                 C 120 260, 220 140, 380 160
+                 C 500 175, 560 120, 680 140
+                 C 840 170, 900 300, 830 410
+                 C 780 490, 660 520, 540 500
+                 C 460 485, 380 540, 290 520
+                 C 200 495, 150 480, 130 420"
+              fill="none" stroke="#33547a" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" opacity="0.9"/>
+            <!-- Inner rail highlight -->
+            <path
+              d="M 130 420
+                 C 120 260, 220 140, 380 160
+                 C 500 175, 560 120, 680 140
+                 C 840 170, 900 300, 830 410
+                 C 780 490, 660 520, 540 500
+                 C 460 485, 380 540, 290 520
+                 C 200 495, 150 480, 130 420"
+              fill="none" stroke="#0b1a2a" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" opacity="0.8"/>
+
+            <!-- Stations -->
+            <g id="stations">
+              <!-- (x,y) pairs roughly on/near the path -->
+              <g transform="translate(160,390)">
+                <circle r="10" fill="#0f1620" stroke="#6aa5ff" stroke-width="2"></circle>
+                <text x="16" y="5" fill="#cfe6ff" font-size="14">A 北门</text>
+              </g>
+              <g transform="translate(300,220)">
+                <circle r="10" fill="#0f1620" stroke="#6aa5ff" stroke-width="2"></circle>
+                <text x="16" y="5" fill="#cfe6ff" font-size="14">B 图书馆</text>
+              </g>
+              <g transform="translate(520,160)">
+                <circle r="10" fill="#0f1620" stroke="#6aa5ff" stroke-width="2"></circle>
+                <text x="16" y="5" fill="#cfe6ff" font-size="14">C 教学楼</text>
+              </g>
+              <g transform="translate(790,280)">
+                <circle r="10" fill="#0f1620" stroke="#6aa5ff" stroke-width="2"></circle>
+                <text x="16" y="5" fill="#cfe6ff" font-size="14">D 体育馆</text>
+              </g>
+              <g transform="translate(640,500)">
+                <circle r="10" fill="#0f1620" stroke="#6aa5ff" stroke-width="2"></circle>
+                <text x="16" y="5" fill="#cfe6ff" font-size="14">E 食堂</text>
+              </g>
+            </g>
+
+            <!-- Trains -->
+            <g id="train1">
+              <circle r="12" fill="#60a5fa" opacity="0.95"></circle>
+              <circle r="5" fill="#0b0f14"></circle>
+            </g>
+            <g id="train2">
+              <circle r="12" fill="#22c55e" opacity="0.95"></circle>
+              <circle r="5" fill="#0b0f14"></circle>
+            </g>
+
+            <!-- Speed vectors -->
+            <line id="vec1" x1="0" y1="0" x2="0" y2="0" stroke="#9cd0ff" stroke-width="3" opacity="0.9" />
+            <line id="vec2" x1="0" y1="0" x2="0" y2="0" stroke="#8affc1" stroke-width="3" opacity="0.9" />
+          </svg>
+
+          <div class="legend">
+            <div class="tag"><strong>蓝</strong> T-01</div>
+            <div class="tag"><strong>绿</strong> T-02</div>
+            <div class="tag">站点：A–E</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Right: Status -->
+    <aside class="panel">
+      <div class="hd">
+        <h2>实时状态</h2>
+        <div class="k">最近更新：<span id="lastUpdate">—</span></div>
+      </div>
+      <div class="bd">
+        <div class="gridCards" style="margin-bottom:10px;">
+          <div class="card" id="cardT1">
+            <div class="row">
+              <div>
+                <div style="font-weight:650;">T-01</div>
+                <div class="k">下一站：<span id="t1Next">—</span></div>
+              </div>
+              <span class="status" id="t1Status"><span class="sDot"></span><span id="t1StatusText">运行中</span></span>
+            </div>
+            <div style="height:8px;"></div>
+            <div class="row">
+              <div class="k">速度</div><div class="v"><span id="t1Speed">—</span> m/s</div>
+            </div>
+            <div class="row">
+              <div class="k">载客率</div><div class="v"><span id="t1Occ">—</span>%</div>
+            </div>
+            <div class="row">
+              <div class="k">延误</div><div class="v"><span id="t1Delay">—</span> s</div>
+            </div>
+          </div>
+
+          <div class="card" id="cardT2">
+            <div class="row">
+              <div>
+                <div style="font-weight:650;">T-02</div>
+                <div class="k">下一站：<span id="t2Next">—</span></div>
+              </div>
+              <span class="status" id="t2Status"><span class="sDot"></span><span id="t2StatusText">运行中</span></span>
+            </div>
+            <div style="height:8px;"></div>
+            <div class="row">
+              <div class="k">速度</div><div class="v"><span id="t2Speed">—</span> m/s</div>
+            </div>
+            <div class="row">
+              <div class="k">载客率</div><div class="v"><span id="t2Occ">—</span>%</div>
+            </div>
+            <div class="row">
+              <div class="k">延误</div><div class="v"><span id="t2Delay">—</span> s</div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="row">
+              <div style="font-weight:650;">线路健康</div>
+              <span class="status" id="lineStatus"><span class="sDot"></span><span id="lineStatusText">良好</span></span>
+            </div>
+            <div style="height:8px;"></div>
+            <div class="row"><div class="k">可用区间</div><div class="v" id="segAvail">A–E 全线</div></div>
+            <div class="row"><div class="k">告警</div><div class="v" id="alarms">0</div></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="row">
+            <div style="font-weight:650;">事件日志</div>
+            <div class="k">保留最近 30 条</div>
+          </div>
+          <div style="height:10px;"></div>
+          <div class="log" id="log"></div>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- Call Train Modal -->
+  <div class="modalBackdrop" id="modalBackdrop" role="dialog" aria-modal="true" aria-label="呼叫列车窗口">
+    <div class="modal">
+      <div class="mh">
+        <h3>呼叫列车</h3>
+        <button id="btnClose" class="ghost">关闭</button>
+      </div>
+      <div class="mb">
+        <div class="hint">
+          演示逻辑：提交后会写入“呼叫请求”，并在下一次到站时优先分配最近列车。实际接入时可将提交改为 POST /api/call 或 WebSocket 消息。
+        </div>
+        <div class="twoCol">
+          <label>
+            上车站点
+            <select id="fromStation">
+              <option value="A">A 北门</option>
+              <option value="B">B 图书馆</option>
+              <option value="C">C 教学楼</option>
+              <option value="D">D 体育馆</option>
+              <option value="E">E 食堂</option>
+            </select>
+          </label>
+          <label>
+            目的站点
+            <select id="toStation">
+              <option value="B">B 图书馆</option>
+              <option value="C">C 教学楼</option>
+              <option value="D">D 体育馆</option>
+              <option value="E">E 食堂</option>
+              <option value="A">A 北门</option>
+            </select>
+          </label>
+        </div>
+        <div class="twoCol">
+          <label>
+            人数
+            <input id="passengers" type="number" min="1" max="80" value="1" />
+          </label>
+          <label>
+            优先级
+            <select id="priority">
+              <option value="normal">普通</option>
+              <option value="high">高（赶课/换乘）</option>
+              <option value="access">无障碍</option>
+            </select>
+          </label>
+        </div>
+        <label>
+          备注（可选）
+          <input id="note" type="text" placeholder="例如：携带大件行李/轮椅" />
+        </label>
+      </div>
+      <div class="actions">
+        <button id="btnSubmit" class="primary">提交呼叫</button>
+        <button id="btnCancel" class="ghost">取消</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ======= 数据源（演示：本地仿真） =======
+    // 真实接入：把 tick() 里生成数据替换为 WebSocket / REST 更新即可
+    const stations = [
+      { id: "A", name: "北门" },
+      { id: "B", name: "图书馆" },
+      { id: "C", name: "教学楼" },
+      { id: "D", name: "体育馆" },
+      { id: "E", name: "食堂" },
+    ];
+
+    const state = {
+      connected: true,
+      paused: false,
+      tickMs: 500,
+      alarms: 0,
+      callRequests: [], // {id, from, to, pax, priority, note, ts}
+      trains: {
+        T1: { id: "T-01", t: 0.12, v: 0.020, occ: 36, delay: 0, status: "ok", next: "B" },
+        T2: { id: "T-02", t: 0.62, v: 0.017, occ: 52, delay: 0, status: "ok", next: "E" },
+      }
+    };
+
+    // ======= SVG 轨道路径采样 =======
+    const trackPath = document.getElementById("track");
+    const trackLen = trackPath.getTotalLength();
+
+    function pointAt(t) {
+      // t: 0..1
+      const p = trackPath.getPointAtLength(t * trackLen);
+      return { x: p.x, y: p.y };
+    }
+    function tangentAt(t) {
+      const eps = 0.002;
+      const p1 = pointAt(Math.max(0, t - eps));
+      const p2 = pointAt(Math.min(1, t + eps));
+      const dx = p2.x - p1.x, dy = p2.y - p1.y;
+      const mag = Math.max(1e-6, Math.hypot(dx, dy));
+      return { x: dx / mag, y: dy / mag };
+    }
+
+    // ======= UI 引用 =======
+    const el = (id) => document.getElementById(id);
+    const logEl = el("log");
+
+    const t1 = document.getElementById("train1");
+    const t2 = document.getElementById("train2");
+    const vec1 = el("vec1");
+    const vec2 = el("vec2");
+
+    const connDot = el("connDot");
+    const connText = el("connText");
+    const btnPause = el("btnPause");
+
+    // ======= 日志 =======
+    function addLog(title, msg) {
+      const now = new Date();
+      const item = document.createElement("div");
+      item.className = "logItem";
+      item.innerHTML = `
+        <div class="t">${escapeHtml(title)}</div>
+        <div class="m">${escapeHtml(msg)}</div>
+        <div class="ts">${now.toLocaleString()}</div>
+      `;
+      logEl.prepend(item);
+      while (logEl.children.length > 30) logEl.removeChild(logEl.lastChild);
+    }
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    // ======= 状态显示 =======
+    function setStatusBadge(badgeEl, textEl, level) {
+      badgeEl.classList.remove("warn", "bad");
+      if (level === "warn") badgeEl.classList.add("warn");
+      if (level === "bad") badgeEl.classList.add("bad");
+      textEl.textContent = level === "ok" ? "运行中" : (level === "warn" ? "注意" : "故障");
+    }
+
+    function nearestStationId(t) {
+      // 简化：按区间划分环线（0..1）
+      // A(0.06),B(0.22),C(0.42),D(0.60),E(0.78)
+      const marks = [
+        { id: "A", t: 0.06 },
+        { id: "B", t: 0.22 },
+        { id: "C", t: 0.42 },
+        { id: "D", t: 0.60 },
+        { id: "E", t: 0.78 },
+      ];
+      let best = marks[0], bestD = Infinity;
+      for (const m of marks) {
+        const d = Math.min(Math.abs(t - m.t), 1 - Math.abs(t - m.t)); // 环形距离
+        if (d < bestD) { bestD = d; best = m; }
+      }
+      return best.id;
+    }
+
+    function nextStationId(currentId) {
+      const idx = stations.findIndex(s => s.id === currentId);
+      return stations[(idx + 1) % stations.length].id;
+    }
+
+    function updateUI() {
+      el("tickMs").textContent = state.tickMs;
+      el("lastUpdate").textContent = new Date().toLocaleTimeString();
+
+      // connection
+      if (state.connected) {
+        connDot.classList.remove("off");
+        connText.textContent = state.paused ? "在线（已暂停）" : "在线（仿真）";
+      } else {
+        connDot.classList.add("off");
+        connText.textContent = "离线";
+      }
+
+      // trains
+      const T1 = state.trains.T1;
+      const T2 = state.trains.T2;
+
+      el("t1Speed").textContent = (T1.v * trackLen / (state.tickMs / 1000)).toFixed(1);
+      el("t2Speed").textContent = (T2.v * trackLen / (state.tickMs / 1000)).toFixed(1);
+
+      el("t1Occ").textContent = T1.occ.toFixed(0);
+      el("t2Occ").textContent = T2.occ.toFixed(0);
+
+      el("t1Delay").textContent = T1.delay.toFixed(0);
+      el("t2Delay").textContent = T2.delay.toFixed(0);
+
+      el("t1Next").textContent = stationLabel(T1.next);
+      el("t2Next").textContent = stationLabel(T2.next);
+
+      setStatusBadge(el("t1Status"), el("t1StatusText"), T1.status);
+      setStatusBadge(el("t2Status"), el("t2StatusText"), T2.status);
+
+      // line
+      el("alarms").textContent = state.alarms;
+      const lineLevel = state.alarms === 0 ? "ok" : (state.alarms <= 2 ? "warn" : "bad");
+      const lineText = lineLevel === "ok" ? "良好" : (lineLevel === "warn" ? "有告警" : "风险");
+      el("lineStatusText").textContent = lineText;
+      el("lineStatus").classList.remove("warn","bad");
+      if (lineLevel === "warn") el("lineStatus").classList.add("warn");
+      if (lineLevel === "bad") el("lineStatus").classList.add("bad");
+    }
+
+    function stationLabel(id) {
+      const s = stations.find(x => x.id === id);
+      return s ? `${s.id} ${s.name}` : id;
+    }
+
+    // ======= 列车绘制 =======
+    function placeTrain(groupEl, vecEl, t) {
+      const p = pointAt(t);
+      const tan = tangentAt(t);
+      groupEl.setAttribute("transform", `translate(${p.x},${p.y})`);
+      vecEl.setAttribute("x1", p.x);
+      vecEl.setAttribute("y1", p.y);
+      vecEl.setAttribute("x2", (p.x + tan.x * 40).toFixed(2));
+      vecEl.setAttribute("y2", (p.y + tan.y * 40).toFixed(2));
+    }
+
+    // ======= 仿真 tick =======
+    let lastDockStationT1 = null;
+    let lastDockStationT2 = null;
+
+    function maybeDock(trainKey) {
+      const T = state.trains[trainKey];
+      const near = nearestStationId(T.t);
+      // 仅当非常接近站点时判定到站
+      const marks = { A:0.06, B:0.22, C:0.42, D:0.60, E:0.78 };
+      const d = Math.min(Math.abs(T.t - marks[near]), 1 - Math.abs(T.t - marks[near]));
+      const arrived = d < 0.012;
+
+      if (!arrived) return;
+
+      const last = trainKey === "T1" ? lastDockStationT1 : lastDockStationT2;
+      if (last === near) return; // 防抖：同一站点只触发一次
+
+      if (trainKey === "T1") lastDockStationT1 = near;
+      else lastDockStationT2 = near;
+
+      // 到站更新下一站
+      T.next = nextStationId(near);
+
+      // 模拟载客与延误变化
+      T.occ = clamp(T.occ + rand(-8, 10), 5, 95);
+      T.delay = clamp(T.delay + rand(-3, 6), 0, 60);
+
+      // 处理呼叫请求：到站时尝试匹配
+      if (state.callRequests.length) {
+        // 简化：优先匹配同站上车
+        const idx = state.callRequests.findIndex(r => r.from === near);
+        if (idx !== -1) {
+          const r = state.callRequests.splice(idx, 1)[0];
+          addLog("呼叫已分配", `${T.id} 将在 ${stationLabel(r.from)} 接载 ${r.pax} 人前往 ${stationLabel(r.to)}（优先级：${priorityLabel(r.priority)}）`);
+          // 轻微影响延误
+          T.delay = clamp(T.delay + (r.priority === "high" ? 2 : 1), 0, 60);
+        }
+      }
+
+      addLog("到站", `${T.id} 抵达 ${stationLabel(near)}，下一站 ${stationLabel(T.next)}`);
+    }
+
+    function tick() {
+      if (!state.connected || state.paused) return;
+
+      // 随机线路告警（小概率）
+      if (Math.random() < 0.03) {
+        state.alarms = clamp(state.alarms + (Math.random() < 0.65 ? 1 : -1), 0, 5);
+        if (state.alarms > 0) addLog("线路告警", `检测到 ${state.alarms} 个告警（示例：风速/间距/供电波动）`);
+      }
+
+      // 列车前进（环线）
+      const T1 = state.trains.T1;
+      const T2 = state.trains.T2;
+
+      // 告警影响速度与状态
+      const penalty = state.alarms >= 3 ? 0.55 : (state.alarms >= 1 ? 0.80 : 1.0);
+
+      T1.t = (T1.t + T1.v * penalty) % 1;
+      T2.t = (T2.t + T2.v * penalty) % 1;
+
+      // 状态（示例规则）
+      T1.status = state.alarms >= 4 ? "warn" : "ok";
+      T2.status = state.alarms >= 4 ? "warn" : "ok";
+
+      // 偶发故障（极小概率）
+      if (Math.random() < 0.005) {
+        const victim = Math.random() < 0.5 ? T1 : T2;
+        victim.status = "bad";
+        addLog("车辆故障", `${victim.id} 上报故障（示例：车门/传感器），建议人工确认`);
+      }
+
+      // 绘制
+      placeTrain(t1, vec1, T1.t);
+      placeTrain(t2, vec2, T2.t);
+
+      // 到站事件
+      maybeDock("T1");
+      maybeDock("T2");
+
+      updateUI();
+    }
+
+    function rand(a, b) { return a + Math.random() * (b - a); }
+    function clamp(x, lo, hi) { return Math.max(lo, Math.min(hi, x)); }
+    function priorityLabel(p) {
+      return p === "high" ? "高" : (p === "access" ? "无障碍" : "普通");
+    }
+
+    // ======= 呼叫列车窗口 =======
+    const modal = el("modalBackdrop");
+    const btnCall = el("btnCall");
+    const btnClose = el("btnClose");
+    const btnCancel = el("btnCancel");
+    const btnSubmit = el("btnSubmit");
+
+    function openModal() { modal.style.display = "flex"; }
+    function closeModal() { modal.style.display = "none"; }
+
+    btnCall.addEventListener("click", openModal);
+    btnClose.addEventListener("click", closeModal);
+    btnCancel.addEventListener("click", closeModal);
+    modal.addEventListener("click", (e) => { if (e.target === modal) closeModal(); });
+
+    btnSubmit.addEventListener("click", () => {
+      const from = el("fromStation").value;
+      const to = el("toStation").value;
+      const pax = parseInt(el("passengers").value || "1", 10);
+      const priority = el("priority").value;
+      const note = el("note").value.trim();
+
+      if (from === to) {
+        addLog("呼叫失败", "上车站点与目的站点不能相同");
+        closeModal();
+        return;
+      }
+      const req = {
+        id: crypto.randomUUID?.() || String(Date.now()),
+        from, to, pax: clamp(pax, 1, 80),
+        priority, note,
+        ts: Date.now()
+      };
+      state.callRequests.push(req);
+      addLog("呼叫已提交", `从 ${stationLabel(from)} 到 ${stationLabel(to)}，人数 ${req.pax}（优先级：${priorityLabel(priority)}${note ? "，备注：" + note : ""}）`);
+      closeModal();
+    });
+
+    // ======= 暂停/恢复 =======
+    btnPause.addEventListener("click", () => {
+      state.paused = !state.paused;
+      btnPause.textContent = state.paused ? "恢复仿真" : "暂停仿真";
+      updateUI();
+      addLog(state.paused ? "仿真暂停" : "仿真恢复", state.paused ? "已暂停实时更新（演示）" : "已恢复实时更新（演示）");
+    });
+
+    // ======= 初始化 =======
+    placeTrain(t1, vec1, state.trains.T1.t);
+    placeTrain(t2, vec2, state.trains.T2.t);
+    addLog("系统启动", "监控面板已就绪（本地仿真数据）");
+    updateUI();
+    setInterval(tick, state.tickMs);
+
+    // ======= 真实接入提示（示例） =======
+    // 1) WebSocket:
+    // const ws = new WebSocket("wss://your-domain/ws");
+    // ws.onmessage = (ev)=> { const data = JSON.parse(ev.data); apply(data); updateUI(); };
+    // 2) REST 轮询:
+    // setInterval(async()=> { const data = await (await fetch("/api/status")).json(); apply(data); }, 500);
+  </script>
+</body>
+</html>
